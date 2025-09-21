@@ -1,4 +1,4 @@
-**bilibili-dl**
+# bilibili-dl
 
 Minimal Rust CLI to download Bilibili videos via the WBI playurl API.
 
