@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ''
+            archive: zip
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: .exe
+            archive: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release
+        run: cargo build --release --locked
+
+      - name: Package artifact (Unix)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          BIN=target/release/bilibili-dl
+          OUT=bilibili-dl-${{ github.ref_name }}-${{ matrix.target }}.zip
+          zip -j "$OUT" "$BIN" README.md CHANGELOG.md || true
+
+      - name: Package artifact (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          $bin = "target/release/bilibili-dl.exe"
+          $out = "bilibili-dl-${{ github.ref_name }}-${{ matrix.target }}.zip"
+          Compress-Archive -Force -Path $bin, 'README.md', 'CHANGELOG.md' -DestinationPath $out
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
