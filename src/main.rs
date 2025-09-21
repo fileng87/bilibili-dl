@@ -152,13 +152,29 @@ async fn run_and_download(args: cli::Args) -> Result<()> {
 
     if let Some(v) = vsel {
         let vp = format!("{}-v-{}.m4s", out_stem, v.id);
-        downloader::download_with_progress(&v.base_url, &vp, &args.user_agent, &args.referer, args.resume).await?;
+        downloader::download_with_progress(
+            &v.base_url,
+            &vp,
+            &args.user_agent,
+            &args.referer,
+            client.cookie_header(),
+            client.cookie_jar(),
+            args.resume,
+        ).await?;
         video_path = Some(vp);
     }
 
     if let Some(a) = asel {
         let ap = format!("{}-a-{}.m4s", out_stem, a.id);
-        downloader::download_with_progress(&a.base_url, &ap, &args.user_agent, &args.referer, args.resume).await?;
+        downloader::download_with_progress(
+            &a.base_url,
+            &ap,
+            &args.user_agent,
+            &args.referer,
+            client.cookie_header(),
+            client.cookie_jar(),
+            args.resume,
+        ).await?;
         audio_path = Some(ap);
     }
 

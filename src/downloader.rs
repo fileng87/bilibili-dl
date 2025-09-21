@@ -2,6 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::header::{HeaderMap, HeaderValue, REFERER, USER_AGENT};
 use reqwest::Client;
+use reqwest_cookie_store::CookieStoreMutex;
+use std::sync::Arc;
 use std::path::Path;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -12,15 +14,22 @@ pub async fn download_with_progress(
     out_path: &str,
     user_agent: &str,
     referer: &str,
+    cookie: Option<&str>,
+    jar: Option<Arc<CookieStoreMutex>>,
     resume: bool,
 ) -> Result<()> {
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_str(user_agent).unwrap());
     headers.insert(REFERER, HeaderValue::from_str(referer).unwrap());
-    let client = Client::builder()
+    if let Some(c) = cookie {
+        use reqwest::header::COOKIE;
+        headers.insert(COOKIE, HeaderValue::from_str(c).unwrap());
+    }
+    let mut builder = Client::builder()
         .default_headers(headers)
-        .http1_only()
-        .build()?;
+        .http1_only();
+    if let Some(j) = jar { builder = builder.cookie_provider(j); }
+    let client = builder.build()?;
 
     use reqwest::header::{RANGE, CONTENT_RANGE};
     let path = Path::new(out_path);

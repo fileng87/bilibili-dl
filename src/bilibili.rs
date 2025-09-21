@@ -3,6 +3,8 @@ use anyhow::{anyhow, Context, Result};
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderValue, REFERER, USER_AGENT};
 use reqwest::{Client, Proxy, Url};
+use reqwest_cookie_store::{CookieStore, CookieStoreMutex, RawCookie};
+use std::sync::Arc;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -11,6 +13,8 @@ use tokio::time::{sleep, Duration};
 #[derive(Clone)]
 pub struct BiliClient {
     http: Client,
+    cookie_header: Option<String>,
+    jar: Option<Arc<CookieStoreMutex>>,
 }
 
 impl BiliClient {
@@ -37,17 +41,29 @@ impl BiliClient {
         }
 
         // Simple Netscape cookie file: extract name=value pairs for api domain
+        let mut cookie_header: Option<String> = None;
+        let mut jar: Option<Arc<CookieStoreMutex>> = None;
         if let Some(path) = cookies {
             if let Ok(h) = build_cookie_header_from_netscape(&path) {
                 use reqwest::header::COOKIE;
                 let mut merged = headers;
                 merged.insert(COOKIE, HeaderValue::from_str(&h).unwrap());
                 builder = builder.default_headers(merged);
+                cookie_header = Some(h);
+            }
+            // Also load cookies into a shared cookie jar
+            let store = CookieStore::default();
+            let jar_arc = Arc::new(CookieStoreMutex::new(store));
+            if let Ok(cnt) = load_netscape_into_jar(&jar_arc, &path) {
+                if cnt > 0 {
+                    builder = builder.cookie_provider(jar_arc.clone());
+                    jar = Some(jar_arc);
+                }
             }
         }
 
         let http = builder.build()?;
-        Ok(Self { http })
+        Ok(Self { http, cookie_header, jar })
     }
 
     pub async fn resolve_bvid_and_cid(&self, input: &str, page: u32) -> Result<(String, u64)> {
@@ -160,6 +176,11 @@ impl BiliClient {
         }
         Err(last_err.unwrap_or_else(|| anyhow!("request failed")))
     }
+}
+
+impl BiliClient {
+    pub fn cookie_header(&self) -> Option<&str> { self.cookie_header.as_deref() }
+    pub fn cookie_jar(&self) -> Option<Arc<CookieStoreMutex>> { self.jar.clone() }
 }
 
 pub fn select_streams(
@@ -329,6 +350,38 @@ fn build_cookie_header_from_netscape(path: &str) -> Result<String> {
     }
     if pairs.is_empty() { return Err(anyhow!("no useful cookies found")); }
     Ok(pairs.into_iter().map(|(k,v)| format!("{}={}", k, v)).collect::<Vec<_>>().join("; "))
+}
+
+fn load_netscape_into_jar(jar: &Arc<CookieStoreMutex>, path: &str) -> Result<usize> {
+    let file = File::open(path).context("open cookies file")?;
+    let reader = BufReader::new(file);
+    let mut count = 0usize;
+    for line in reader.lines() {
+        let line = line?;
+        let t = line.trim();
+        if t.is_empty() || t.starts_with('#') { continue; }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 7 { continue; }
+        let domain = parts[0].trim();
+        let path = parts[2].trim();
+        let secure = parts[3].trim().eq_ignore_ascii_case("TRUE");
+        let name = parts[5].trim();
+        let value = parts[6].trim();
+        if name.is_empty() { continue; }
+        let origin = format!("https://{}", domain.trim_start_matches('.'));
+        if let Ok(url) = Url::parse(&origin) {
+            let p = if path.is_empty() { "/" } else { path };
+            let mut rc = RawCookie::new(name.to_string(), value.to_string());
+            rc.set_path(p.to_string());
+            rc.set_domain(domain.to_string());
+            if secure { rc.set_secure(true); }
+            if let Ok(mut guard) = jar.lock() {
+                let _ = guard.store_response_cookies(std::iter::once(rc), &url);
+                count += 1;
+            }
+        }
+    }
+    Ok(count)
 }
 
 // ==== Types ====
