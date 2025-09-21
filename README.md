@@ -51,4 +51,4 @@ Notes
 - `.m4s` are fragmented MP4 tracks from DASH; ffmpeg merges them with `-c copy`.
 
 Acknowledgements
-- API reference: SocialSisterYi/bilibili-API-collect (videostream_url / WBI)
+- SocialSisterYi/bilibili-API-collect project: https://github.com/SocialSisterYi/bilibili-API-collect
