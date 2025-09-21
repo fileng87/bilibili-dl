@@ -6,6 +6,7 @@ use reqwest::{Client, Proxy, Url};
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use tokio::time::{sleep, Duration};
 
 #[derive(Clone)]
 pub struct BiliClient {
@@ -24,8 +25,11 @@ impl BiliClient {
         headers.insert(REFERER, HeaderValue::from_str(&referer).unwrap());
 
         let mut builder = Client::builder()
-            .default_headers(headers)
+            .default_headers(headers.clone())
             .cookie_store(true)
+            .http1_only() // some networks/servers reset h2; prefer h1 for stability
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
             .user_agent(user_agent);
 
         if let Some(p) = proxy {
@@ -35,11 +39,10 @@ impl BiliClient {
         // Simple Netscape cookie file: extract name=value pairs for api domain
         if let Some(path) = cookies {
             if let Ok(h) = build_cookie_header_from_netscape(&path) {
-                // Set a default Cookie header; reqwest cookie store isn't easily preloadable from file
-                let mut hmap = HeaderMap::new();
                 use reqwest::header::COOKIE;
-                hmap.insert(COOKIE, HeaderValue::from_str(&h).unwrap());
-                builder = builder.default_headers(hmap);
+                let mut merged = headers;
+                merged.insert(COOKIE, HeaderValue::from_str(&h).unwrap());
+                builder = builder.default_headers(merged);
             }
         }
 
@@ -59,7 +62,7 @@ impl BiliClient {
             "https://api.bilibili.com/x/web-interface/view",
             &[("bvid", bvid.clone())],
         )?;
-        let view: ViewResp = self.http.get(url).send().await?.json().await?;
+        let view: ViewResp = self.get_json_retry(url).await?;
         let data = view.data.ok_or_else(|| anyhow!("view data missing"))?;
         let idx = (page.saturating_sub(1)) as usize;
         let page_item = data
@@ -95,7 +98,7 @@ impl BiliClient {
             "https://api.bilibili.com/x/web-interface/view",
             &[("bvid", bvid.to_string())],
         )?;
-        let view: ViewResp = self.http.get(url).send().await?.json().await?;
+        let view: ViewResp = self.get_json_retry(url).await?;
         let data = view.data.ok_or_else(|| anyhow!("view data missing"))?;
         Ok(data.title)
     }
@@ -128,12 +131,7 @@ impl BiliClient {
             }
             qp.append_pair("w_rid", &w_rid);
         }
-        let resp = self.http.get(url).send().await?;
-        let status = resp.status();
-        if !status.is_success() {
-            return Err(anyhow!("playurl http status {}", status));
-        }
-        let parsed: PlayUrlResp = resp.json().await.context("parse playurl json")?;
+        let parsed: PlayUrlResp = self.get_json_retry(url).await?;
         if parsed.code != 0 {
             return Err(anyhow!(
                 "playurl api error code {}: {}",
@@ -142,6 +140,25 @@ impl BiliClient {
             ));
         }
         Ok(parsed)
+    }
+
+    async fn get_json_retry<T: serde::de::DeserializeOwned>(&self, url: Url) -> Result<T> {
+        let mut last_err = None;
+        for (i, delay_ms) in [0u64, 500, 1500].into_iter().enumerate() {
+            if delay_ms > 0 { sleep(Duration::from_millis(delay_ms)).await; }
+            let res = self.http.get(url.clone()).send().await;
+            match res {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if status.is_success() {
+                        return Ok(resp.json::<T>().await?);
+                    }
+                    last_err = Some(anyhow!("http status {}", status));
+                }
+                Err(e) => { last_err = Some(anyhow!("send error: {} (attempt {})", e, i+1)); }
+            }
+        }
+        Err(last_err.unwrap_or_else(|| anyhow!("request failed")))
     }
 }
 

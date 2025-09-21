@@ -17,7 +17,10 @@ pub async fn download_with_progress(
     let mut headers = HeaderMap::new();
     headers.insert(USER_AGENT, HeaderValue::from_str(user_agent).unwrap());
     headers.insert(REFERER, HeaderValue::from_str(referer).unwrap());
-    let client = Client::builder().default_headers(headers).build()?;
+    let client = Client::builder()
+        .default_headers(headers)
+        .http1_only()
+        .build()?;
 
     use reqwest::header::{RANGE, CONTENT_RANGE};
     let path = Path::new(out_path);

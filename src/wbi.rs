@@ -4,6 +4,7 @@ use regex::Regex;
 use reqwest::{Client, Url};
 use serde::Deserialize;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::time::{sleep, Duration};
 
 #[derive(Debug, Clone)]
 pub struct WbiSigner {
@@ -12,12 +13,7 @@ pub struct WbiSigner {
 
 impl WbiSigner {
     pub async fn fetch(client: &Client) -> Result<Self> {
-        let nav: NavResp = client
-            .get("https://api.bilibili.com/x/web-interface/nav")
-            .send()
-            .await?
-            .json()
-            .await?;
+        let nav: NavResp = get_json_retry(client, "https://api.bilibili.com/x/web-interface/nav").await?;
 
         let data = nav.data.ok_or_else(|| anyhow!("nav data missing"))?;
         let img_key = extract_key(&data.wbi_img.img_url)?;
@@ -49,6 +45,21 @@ impl WbiSigner {
         let w_rid = format!("{:x}", digest);
         (params, wts, w_rid)
     }
+}
+
+async fn get_json_retry<T: serde::de::DeserializeOwned>(client: &Client, url: &str) -> Result<T> {
+    let mut last_err = None;
+    for delay_ms in [0u64, 500, 1500] {
+        if delay_ms > 0 { sleep(Duration::from_millis(delay_ms)).await; }
+        match client.get(url).send().await {
+            Ok(resp) => {
+                if resp.status().is_success() { return Ok(resp.json::<T>().await?); }
+                last_err = Some(anyhow!("http status {}", resp.status()));
+            }
+            Err(e) => { last_err = Some(anyhow!("send error: {}", e)); }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| anyhow!("request failed")))
 }
 
 fn now_ts() -> u64 {
