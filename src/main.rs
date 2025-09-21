@@ -1,10 +1,8 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 
-mod cli;
-mod wbi;
-mod bilibili;
-mod downloader;
+use bilibili_dl::{cli, bilibili, downloader};
+use bilibili_dl::util::{parse_format, expand_template, sanitize_filename};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -189,49 +187,4 @@ async fn run_and_download(args: cli::Args) -> Result<()> {
     Ok(())
 }
 
-struct FormatSel { want_video: bool, want_audio: bool, prefer_codec: Option<String>, max_height: Option<i32> }
-
-fn parse_format(fmt: &Option<String>, prefer_codec_flag: Option<&str>) -> FormatSel {
-    // Defaults
-    let mut sel = FormatSel { want_video: true, want_audio: true, prefer_codec: prefer_codec_flag.map(|s| s.to_string()), max_height: None };
-    if let Some(s) = fmt {
-        let lower = s.to_ascii_lowercase();
-        if lower.contains("bestvideo+bestaudio") || lower.contains("bv*+ba") || lower == "bv+ba" { sel.want_video = true; sel.want_audio = true; }
-        else if lower.contains("bestvideo") || lower.starts_with("bv") { sel.want_video = true; sel.want_audio = false; }
-        else if lower.contains("bestaudio") || lower.starts_with("ba") { sel.want_video = false; sel.want_audio = true; }
-        else if lower == "best" || lower == "b" { sel.want_video = true; sel.want_audio = true; }
-
-        // codec hint
-        for c in ["avc1", "hev1", "h265", "av01", "av1"] {
-            if lower.contains(c) { sel.prefer_codec = Some(if c=="h265" {"hev1".into()} else { c.into() }); }
-        }
-        // height filter like [height<=1080]
-        if let Some(pos) = lower.find("height<=") {
-            let num = lower[pos+8..].trim_start_matches(|ch: char| ch=='[' || ch=='=' || ch=='<').chars().take_while(|ch| ch.is_ascii_digit()).collect::<String>();
-            if let Ok(h) = num.parse::<i32>() { sel.max_height = Some(h); }
-        }
-    }
-    sel
-}
-
-fn expand_template(tpl: &str, title: &str, bvid: &str, cid: u64, ext: &str) -> String {
-    let mut out = tpl.to_string();
-    out = out.replace("%(title)s", &sanitize_filename(title));
-    out = out.replace("%(id)s", bvid);
-    out = out.replace("%(cid)s", &cid.to_string());
-    out = out.replace("%(ext)s", ext);
-    // If no %(ext)s present, treat tpl as stem
-    if !tpl.contains("%(ext)s") {
-        sanitize_filename(&out)
-    } else {
-        // If user included extension, strip trailing extension when building stem later
-        out.trim_end_matches(&format!(".{}", ext)).to_string()
-    }
-}
-
-fn sanitize_filename(s: &str) -> String {
-    let bad = ["<", ">", ":", "\"", "\\", "/", "|", "?", "*"];
-    let mut out = s.to_string();
-    for b in &bad { out = out.replace(b, "_"); }
-    out.trim().trim_matches('.').to_string()
-}
+// helpers moved to library (util.rs)

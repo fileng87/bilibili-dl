@@ -45,6 +45,9 @@ impl WbiSigner {
         let w_rid = format!("{:x}", digest);
         (params, wts, w_rid)
     }
+
+    /// Test helper: construct a signer from a known mixin_key
+    pub fn for_test(mixin_key: &str) -> Self { Self { mixin_key: mixin_key.to_string() } }
 }
 
 async fn get_json_retry<T: serde::de::DeserializeOwned>(client: &Client, url: &str) -> Result<T> {
@@ -69,7 +72,7 @@ fn now_ts() -> u64 {
         .as_secs()
 }
 
-fn url_encode(s: &str) -> String {
+pub fn url_encode(s: &str) -> String {
     // Use Url::parse_with_params to escape, but simpler percent-encoding via reqwest/Url is fine
     // Build a dummy URL and extract the query
     let mut u = Url::parse("http://x.local/").unwrap();
@@ -78,13 +81,13 @@ fn url_encode(s: &str) -> String {
     q.trim_start_matches("k=").to_string()
 }
 
-fn sanitize(v: &str) -> String {
+pub fn sanitize(v: &str) -> String {
     // Remove characters: ! ' ( ) * per docs (commonly used set; ~ also sometimes removed)
     let re = Regex::new(r"[!'()*~]").unwrap();
     re.replace_all(v, "").to_string()
 }
 
-fn extract_key(url: &str) -> Result<String> {
+pub fn extract_key(url: &str) -> Result<String> {
     // e.g., https://i0.hdslb.com/bfs/wbi/abcd1234efgh5678.png -> abcd1234efgh5678
     let re = Regex::new(r"/([a-zA-Z0-9]+)\.(png|jpg)$").unwrap();
     let caps = re
@@ -93,7 +96,7 @@ fn extract_key(url: &str) -> Result<String> {
     Ok(caps.get(1).unwrap().as_str().to_string())
 }
 
-fn mixin_key(seed: &str) -> String {
+pub fn mixin_key(seed: &str) -> String {
     // Table from public reverse engineering; take first 32 chars
     const TAB: [usize; 64] = [
         46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49, 33, 9, 42,

@@ -290,7 +290,7 @@ fn is_best_token(s: &str) -> bool { let l = s.to_ascii_lowercase(); l=="best" ||
 fn is_video_token(s: &str) -> bool { let l = s.to_ascii_lowercase(); l.starts_with("bestvideo") || l.starts_with("bv") }
 fn is_audio_token(s: &str) -> bool { let l = s.to_ascii_lowercase(); l.starts_with("bestaudio") || l.starts_with("ba") }
 
-fn extract_bvid(input: &str) -> Option<String> {
+pub fn extract_bvid(input: &str) -> Option<String> {
     // direct BV id
     let re_bv = Regex::new(r"BV[0-9A-Za-z]{10}").ok()?;
     if let Some(m) = re_bv.find(input) {
@@ -299,7 +299,7 @@ fn extract_bvid(input: &str) -> Option<String> {
     None
 }
 
-fn extract_page_param(input: &str) -> Option<u32> {
+pub fn extract_page_param(input: &str) -> Option<u32> {
     if let Ok(url) = Url::parse(input) {
         return url
             .query_pairs()
