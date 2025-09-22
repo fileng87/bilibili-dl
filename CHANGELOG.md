@@ -1,5 +1,14 @@
 # Changelog
 
+# Changelog
+
+## v0.2.0
+
+- Cookies: add `--cookies-from-browser` (Windows Chrome/Edge) to import cookies from the selected profile (SQLite + DPAPI/AES‑GCM)
+- Cookies: add `--save-cookies` to export current cookie jar in Netscape format
+- Share cookie jar across API requests and media downloads; also set Cookie header for API as fallback
+- Networking: keep HTTP/1.1, timeouts, and small retries for stability
+
 ## v0.1.0 (initial release)
 
 - Rust CLI scaffold (Tokio, Clap)
@@ -11,4 +20,3 @@
 - Format parser: `bestvideo+bestaudio` and simple filters (`height<=`, `vcodec=`, `vcodec^=`)
 - Tests: integration + CLI; optional online test (opt‑in)
 - CI: GitHub Actions for build/test on Ubuntu and Windows
-
