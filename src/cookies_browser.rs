@@ -9,6 +9,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+#[cfg(target_os = "windows")]
 use windows::Win32::Security::Cryptography::{CryptUnprotectData, CRYPT_INTEGER_BLOB};
 
 #[cfg(target_os = "windows")]
@@ -95,6 +96,7 @@ fn copy_db_temp(src: &Path) -> Result<PathBuf> {
     Ok(tmp)
 }
 
+#[cfg(target_os = "windows")]
 fn decrypt_local_state_key(path: &Path) -> Result<Vec<u8>> {
     let data = fs::read(path).context("read Local State")?;
     let json: serde_json::Value = serde_json::from_slice(&data)?;
@@ -105,6 +107,7 @@ fn decrypt_local_state_key(path: &Path) -> Result<Vec<u8>> {
     dpapi_unprotect(&enc)
 }
 
+#[cfg(target_os = "windows")]
 fn dpapi_unprotect(data: &[u8]) -> Result<Vec<u8>> {
     unsafe {
         let mut in_blob = CRYPT_INTEGER_BLOB { cbData: data.len() as u32, pbData: data.as_ptr() as *mut _ };
