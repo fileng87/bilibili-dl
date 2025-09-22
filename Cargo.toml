@@ -8,6 +8,7 @@ anyhow = "1.0.100"
 base64 = "0.22.1"
 bytes = "1.10.1"
 clap = { version = "4.5.48", features = ["derive"] }
+cookie_store = { version = "0.22.0", features = ["serde"] }
 futures-util = "0.3.31"
 indicatif = "0.18.0"
 md5 = "0.8.0"

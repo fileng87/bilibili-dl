@@ -51,6 +51,9 @@ async fn run_and_print(args: cli::Args) -> Result<()> {
     } else {
         println!("No DASH data available (maybe login required or invalid params)");
     }
+    if let (Some(jar), Some(path)) = (client.cookie_jar(), args.save_cookies.as_deref()) {
+        if let Err(e) = bilibili::save_jar_as_netscape(&jar, path) { eprintln!("save cookies failed: {e}"); }
+    }
     Ok(())
 }
 
@@ -198,6 +201,10 @@ async fn run_and_download(args: cli::Args) -> Result<()> {
                 eprintln!("ffmpeg mux failed: {e}. Tracks left as-is");
             }
         }
+    }
+
+    if let (Some(jar), Some(path)) = (client.cookie_jar(), args.save_cookies.as_deref()) {
+        if let Err(e) = bilibili::save_jar_as_netscape(&jar, path) { eprintln!("save cookies failed: {e}"); }
     }
 
     Ok(())

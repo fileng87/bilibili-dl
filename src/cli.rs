@@ -79,4 +79,8 @@ pub struct Args {
     /// Keep .m4s parts (disables --cleanup)
     #[arg(long = "no-cleanup", action = ArgAction::SetTrue)]
     pub no_cleanup: bool,
+
+    /// Save cookies (Netscape format) after run
+    #[arg(long = "save-cookies")]
+    pub save_cookies: Option<String>,
 }
