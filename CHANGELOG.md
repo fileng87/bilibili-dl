@@ -1,7 +1,5 @@
 # Changelog
 
-# Changelog
-
 ## v0.2.0
 
 - Cookies: add `--cookies-from-browser` (Windows Chrome/Edge) to import cookies from the selected profile (SQLite + DPAPI/AES‑GCM)
