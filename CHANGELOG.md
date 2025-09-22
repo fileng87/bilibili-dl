@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1
+
+- CI: gate Windows-only cookies code and dependency behind cfg(windows) so Linux runners compile cleanly
+- No functional changes to the CLI; same features as v0.2.0
+
 ## v0.2.0
 
 - Cookies: add `--cookies-from-browser` (Windows Chrome/Edge) to import cookies from the selected profile (SQLite + DPAPI/AES‑GCM)
