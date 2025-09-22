@@ -64,6 +64,10 @@ pub struct Args {
     #[arg(long = "cookies")]
     pub cookies: Option<String>,
 
+    /// Load cookies from browser (Windows): chrome|edge[:Profile]
+    #[arg(long = "cookies-from-browser")]
+    pub cookies_from_browser: Option<String>,
+
     /// HTTP/SOCKS proxy URL, e.g. http://127.0.0.1:7890
     #[arg(long = "proxy")]
     pub proxy: Option<String>,

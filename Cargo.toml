@@ -4,22 +4,26 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes-gcm = { version = "0.10.3", features = ["alloc"] }
 anyhow = "1.0.100"
 base64 = "0.22.1"
 bytes = "1.10.1"
 clap = { version = "4.5.48", features = ["derive"] }
 cookie_store = { version = "0.22.0", features = ["serde"] }
+dirs-next = "2.0.0"
 futures-util = "0.3.31"
 indicatif = "0.18.0"
 md5 = "0.8.0"
 regex = "1.11.2"
 reqwest = { version = "0.12.23", features = ["json", "stream", "cookies", "gzip", "brotli", "deflate", "rustls-tls"] }
 reqwest_cookie_store = "0.9.0"
+rusqlite = { version = "0.37.0", features = ["bundled-full"] }
 serde = { version = "1.0.226", features = ["derive"] }
 serde_json = "1.0.145"
 thiserror = "2.0.16"
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "fs"] }
 url = "2.5.7"
+windows = { version = "0.62.0", features = ["Win32_Security_Cryptography", "Win32_Foundation"] }
 
 [dev-dependencies]
 assert_cmd = "2.0.17"

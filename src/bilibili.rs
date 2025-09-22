@@ -66,6 +66,34 @@ impl BiliClient {
         Ok(Self { http, cookie_header, jar })
     }
 
+    pub fn new_with_jar(user_agent: String, referer: String, proxy: Option<String>, jar: Option<Arc<CookieStoreMutex>>, cookie_header: Option<String>) -> Result<Self> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            USER_AGENT,
+            HeaderValue::from_str(&user_agent).unwrap_or(HeaderValue::from_static(
+                "bilibili-dl/0.1",
+            )),
+        );
+        headers.insert(REFERER, HeaderValue::from_str(&referer).unwrap());
+
+        if let Some(h) = cookie_header.as_deref() {
+            use reqwest::header::COOKIE;
+            headers.insert(COOKIE, HeaderValue::from_str(h).unwrap());
+        }
+
+        let mut builder = Client::builder()
+            .default_headers(headers)
+            .cookie_store(true)
+            .http1_only()
+            .connect_timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(30))
+            .user_agent(user_agent);
+        if let Some(p) = proxy { builder = builder.proxy(Proxy::all(&p)?); }
+        if let Some(ref j) = jar { builder = builder.cookie_provider(j.clone()); }
+        let http = builder.build()?;
+        Ok(Self { http, cookie_header, jar })
+    }
+
     pub async fn resolve_bvid_and_cid(&self, input: &str, page: u32) -> Result<(String, u64)> {
         let (bvid, page_from_url) = self
             .parse_bvid_and_page(input)

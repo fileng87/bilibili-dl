@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use bilibili_dl::{cli, bilibili, downloader};
+use bilibili_dl::{cli, bilibili, downloader, cookies_browser};
 use bilibili_dl::util::{parse_format, expand_template, sanitize_filename};
 
 #[tokio::main]
@@ -18,12 +18,7 @@ async fn main() -> Result<()> {
 }
 
 async fn run_and_print(args: cli::Args) -> Result<()> {
-    let client = bilibili::BiliClient::new(
-        args.user_agent.clone(),
-        args.referer.clone(),
-        args.cookies.clone(),
-        args.proxy.clone(),
-    )?;
+    let client = build_client(&args)?;
     let (bvid, cid) = client
         .resolve_bvid_and_cid(&args.input, args.page)
         .await
@@ -58,12 +53,7 @@ async fn run_and_print(args: cli::Args) -> Result<()> {
 }
 
 async fn run_list_formats(args: cli::Args) -> Result<()> {
-    let client = bilibili::BiliClient::new(
-        args.user_agent.clone(),
-        args.referer.clone(),
-        args.cookies.clone(),
-        args.proxy.clone(),
-    )?;
+    let client = build_client(&args)?;
     let (bvid, cid) = client
         .resolve_bvid_and_cid(&args.input, args.page)
         .await
@@ -100,6 +90,26 @@ async fn run_list_formats(args: cli::Args) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn build_client(args: &cli::Args) -> Result<bilibili::BiliClient> {
+    // Priority: cookies-from-browser > cookies file > none
+    if let Some(spec) = &args.cookies_from_browser {
+        let (jar, header) = cookies_browser::load_from_browser(spec)?;
+        return bilibili::BiliClient::new_with_jar(
+            args.user_agent.clone(),
+            args.referer.clone(),
+            args.proxy.clone(),
+            Some(jar),
+            header,
+        );
+    }
+    bilibili::BiliClient::new(
+        args.user_agent.clone(),
+        args.referer.clone(),
+        args.cookies.clone(),
+        args.proxy.clone(),
+    )
 }
 
 async fn run_and_download(args: cli::Args) -> Result<()> {
